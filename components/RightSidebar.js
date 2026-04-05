@@ -1,30 +1,28 @@
 'use client';
 
 import React from 'react';
-import { Settings, BarChart3, Binary, MessageSquareCode } from 'lucide-react';
+import { Settings, BarChart3, Binary, LayoutGrid } from 'lucide-react';
 import useStore from '../shared/store';
 import LivePreview from './LivePreview';
 import BlochSphere from './BlochSphere';
-import AIChatPanel from './AIChatPanel';
 import PropertiesPanel from './PropertiesPanel';
 
 export default function RightSidebar() {
   const { activeRightTab, setActiveTab, selectedGateId } = useStore();
 
   const tabs = [
-    { id: 'preview', icon: <BarChart3 size={16} />, label: 'Results' },
-    { id: 'bloch', icon: <Binary size={16} />, label: 'States' },
-    { id: 'ai', icon: <MessageSquareCode size={16} />, label: 'AI Pilot' },
+    { id: 'preview', icon: <BarChart3 size={18} />, label: 'RESULTS' },
+    { id: 'bloch', icon: <Binary size={18} />, label: 'STATES' },
   ];
 
   if (selectedGateId) {
-    tabs.unshift({ id: 'properties', icon: <Settings size={16} />, label: 'Gate' });
+    tabs.unshift({ id: 'properties', icon: <Settings size={18} />, label: 'UNITARY' });
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#010409] border-l border-[#30363d] shrink-0 overflow-hidden">
-      {/* Tab Navigation */}
-      <div className="flex bg-[#010409] border-b border-[#30363d]">
+    <div className="flex flex-col h-full bg-[#000000] border-l border-[#27272a] shrink-0 overflow-hidden shadow-2xl">
+      {/* Tab Navigation - Enhanced Font Scale */}
+      <div className="flex bg-[#000000] border-b border-[#27272a]">
         {tabs.map((tab) => {
           const isActive = activeRightTab === tab.id;
           return (
@@ -32,34 +30,35 @@ export default function RightSidebar() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                flex-1 flex flex-col items-center justify-center py-3 transition-all relative overflow-hidden
-                ${isActive ? 'text-[#c9d1d9] border-b-2 border-[#2f81f7]' : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'}
+                flex-1 flex flex-col items-center justify-center py-4 transition-all relative overflow-hidden
+                ${isActive ? 'text-[#fafafa] border-b-2 border-blue-500 bg-[#18181b]/50' : 'text-[#71717a] hover:text-[#fafafa] hover:bg-[#18181b]/30'}
               `}
             >
-              <div className="mb-0.5">{tab.icon}</div>
-              <span className="text-[10px] font-bold uppercase tracking-widest">{tab.label}</span>
+              <div className={`mb-1 transition-transform duration-300 ${isActive ? 'scale-110 text-blue-500' : ''}`}>
+                {tab.icon}
+              </div>
+              <span className="text-[11px] font-black uppercase tracking-[0.2em]">{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar relative">
+      {/* Tab Content - More padding for readability */}
+      <div className="flex-1 overflow-y-auto p-6 custom-scrollbar relative bg-[#000000]/50">
         <div className="animate-fade-in">
            {activeRightTab === 'properties' && <PropertiesPanel />}
            {activeRightTab === 'preview' && <LivePreview />}
            {activeRightTab === 'bloch' && <BlochSphere />}
-           {activeRightTab === 'ai' && <AIChatPanel />}
         </div>
       </div>
 
-      {/* Connection Status */}
-      <div className="p-3 border-t border-[#30363d] bg-[#0d1117] flex items-center justify-between px-4">
-         <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-            <span className="text-[9px] font-black uppercase tracking-widest text-[#484f58]">Backend Connected</span>
+      {/* Connection Metadata - Larger and Cleaner */}
+      <div className="p-4 border-t border-[#27272a] bg-[#09090b] flex items-center justify-between px-6">
+         <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#71717a]">Live Session Active</span>
          </div>
-         <span className="text-[9px] font-mono text-[#30363d]">v2.1</span>
+         <span className="text-[10px] font-mono text-[#3f3f46] font-bold">NODE_PRIME</span>
       </div>
     </div>
   );
