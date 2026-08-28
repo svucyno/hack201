@@ -9,72 +9,110 @@ export default function CircuitEditor() {
   const { numQubits, gates } = useStore();
   const editorRef = useRef(null);
 
-  // Spacious Interaction Constants
-  const QUBIT_ROW_HEIGHT = 64;    
-  const GUTTER_Y = 16;            
-  const TOP_GUTTER = 48;          
-  const LEFT_GUTTER = 80 + 24;    
+  // Layout Constants for precise alignment
+  const QUBIT_ROW_HEIGHT = 80;
+  const GAP_Y = 16;
+  const TOP_OFFSET = 72;
+  const LEFT_LABEL_WIDTH = 112; // 28 * 4px width of wire label + gap
 
   return (
     <div 
       ref={editorRef}
-      className="relative flex flex-col min-w-[max-content] min-h-full p-10 md:p-20 bg-[#000000] rounded-2xl border border-[#27272a] shadow-2xl relative transition-all duration-700"
+      className="relative flex flex-col min-w-[max-content] w-full p-6 md:p-12 glass-panel rounded-3xl border border-white/10 shadow-2xl transition-all select-none"
     >
-      {/* Background Micro Interaction Pattern */}
-      <div className="absolute inset-0 gate-grid-bg opacity-[0.05] pointer-events-none rounded-2xl hover:opacity-[0.08] transition-opacity" />
+      {/* Background Subtle Matrix */}
+      <div className="absolute inset-0 quantum-grid-bg opacity-30 pointer-events-none rounded-3xl" />
       
-      {/* Dynamic Header - High fidelity hover tracks */}
-      <div className="flex h-12 ml-[104px] mb-8 opacity-30 select-none">
+      {/* Time Step Header Grid */}
+      <div className="flex h-10 ml-[124px] mb-6 select-none relative z-10">
         {Array.from({ length: TIME_SLOTS }).map((_, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center justify-center border-r border-[#27272a]/10 group/time cursor-default hover:bg-[#18181b]/50 transition-all rounded">
-            <div className="w-1 h-1 bg-[#27272a] rounded-full mb-2 group-hover/time:bg-blue-500/50 group-hover/time:scale-125 transition-all" />
-            <div className="text-[10px] font-bold text-[#71717a] font-mono tracking-widest uppercase group-hover/time:text-[#fafafa]">
+          <div 
+            key={i} 
+            className="flex-1 flex flex-col items-center justify-center border-r border-white/5 group/time cursor-default hover:bg-white/5 transition-all rounded-lg"
+          >
+            <div className="w-1.5 h-1.5 bg-slate-700 rounded-full mb-1 group-hover/time:bg-cyan-400 group-hover/time:scale-150 transition-all shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
+            <div className="text-[10px] font-mono font-bold text-slate-500 group-hover/time:text-cyan-300 tracking-wider">
               T{i < 10 ? `0${i}` : i}
             </div>
           </div>
         ))}
       </div>
 
+      {/* Qubit Wires */}
       <div className="flex flex-col gap-4 relative z-10 w-full animate-fade-in">
         {Array.from({ length: numQubits }).map((_, i) => (
           <QubitWire key={i} qubitIndex={i} />
         ))}
       </div>
 
-      {/* Connection SVG Layer - Animated Fidelity */}
-      <svg className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-visible" style={{ zIndex: 5 }}>
+      {/* Connection SVG Layer for Multi-Qubit Entanglement Gates (CNOT, CZ, SWAP) */}
+      <svg className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-visible z-20">
         <defs>
-          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#2563eb" stopOpacity="0.8" />
+          <linearGradient id="beamGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.9" />
+            <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.9" />
           </linearGradient>
+          <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
         </defs>
+
         {gates.filter(g => g.target !== undefined).map(gate => {
-          const x = 104 + (gate.time / (TIME_SLOTS - 1)) * (editorRef.current?.offsetWidth - 104 - 104 || 0);
-          const y1 = TOP_GUTTER + 48 + (QUBIT_ROW_HEIGHT + GUTTER_Y) * gate.qubit + 32;
-          const y2 = TOP_GUTTER + 48 + (QUBIT_ROW_HEIGHT + GUTTER_Y) * gate.target + 32;
+          // Precise coordinate mapping
+          const width = editorRef.current ? (editorRef.current.offsetWidth - 124 - 48) : 700;
+          const x = 124 + (gate.time / (TIME_SLOTS - 1)) * width;
+          const y1 = TOP_OFFSET + gate.qubit * (QUBIT_ROW_HEIGHT + GAP_Y) + QUBIT_ROW_HEIGHT / 2;
+          const y2 = TOP_OFFSET + gate.target * (QUBIT_ROW_HEIGHT + GAP_Y) + QUBIT_ROW_HEIGHT / 2;
 
           return (
             <g key={gate.id} className="animate-fade-in group/conn">
-               <line 
-                 x1={x} y1={y1} x2={x} y2={y2} 
-                 className="stroke-[url(#lineGrad)] stroke-[1.5] transition-all hover:stroke-[2.5]"
-                 strokeDasharray="4,4"
-               >
-                 <animate attributeName="stroke-dashoffset" from="0" to="20" dur="2s" repeatCount="indefinite" />
-               </line>
-               <circle cx={x} cy={y1} r={4} className="fill-[#3b82f6] shadow-xl animate-pulse" />
-               <g transform={`translate(${x}, ${y2})`}>
-                  <circle r={10} className="fill-[#000000] stroke-[#3b82f6] stroke-2 hover:r-12 transition-all" />
-                  <circle r={10} className="fill-none stroke-blue-500 opacity-20 animate-ping" />
-                  {gate.type === 'CNOT' && (
-                    <>
-                      <line x1="-5" y1="0" x2="5" y2="0" className="stroke-[#3b82f6] stroke-1.5" />
-                      <line x1="0" y1="-5" x2="0" y2="5" className="stroke-[#3b82f6] stroke-1.5" />
-                    </>
-                  )}
-                  {gate.type === 'CZ' && <circle r={4} className="fill-[#3b82f6]" />}
-               </g>
+              {/* Connecting Pulse Beam */}
+              <line 
+                x1={x} y1={y1} x2={x} y2={y2} 
+                stroke="url(#beamGrad)" 
+                strokeWidth="2.5"
+                strokeDasharray="4 3"
+                filter="url(#glowFilter)"
+              >
+                <animate attributeName="stroke-dashoffset" from="14" to="0" dur="1s" repeatCount="indefinite" />
+              </line>
+
+              {/* Control Dot at y1 */}
+              <circle cx={x} cy={y1} r={5} className="fill-cyan-400 shadow-lg drop-shadow-[0_0_8px_#06b6d4]" />
+
+              {/* Target Symbol at y2 */}
+              <g transform={`translate(${x}, ${y2})`}>
+                {gate.type === 'CNOT' && (
+                  <>
+                    <circle r={12} className="fill-slate-950 stroke-cyan-400 stroke-2 drop-shadow-[0_0_8px_#06b6d4]" />
+                    <line x1="-7" y1="0" x2="7" y2="0" className="stroke-cyan-400 stroke-2" />
+                    <line x1="0" y1="-7" x2="0" y2="7" className="stroke-cyan-400 stroke-2" />
+                  </>
+                )}
+
+                {gate.type === 'CZ' && (
+                  <circle r={7} className="fill-cyan-400 stroke-white stroke-1 drop-shadow-[0_0_8px_#06b6d4]" />
+                )}
+
+                {gate.type === 'SWAP' && (
+                  <>
+                    <circle r={12} className="fill-slate-950 stroke-teal-400 stroke-2 drop-shadow-[0_0_8px_#14b8a6]" />
+                    <line x1="-6" y1="-6" x2="6" y2="6" className="stroke-teal-400 stroke-2" />
+                    <line x1="-6" y1="6" x2="6" y2="-6" className="stroke-teal-400 stroke-2" />
+                  </>
+                )}
+              </g>
+
+              {/* If SWAP, also render 'x' at control point y1 (BUG-005 fix) */}
+              {gate.type === 'SWAP' && (
+                <g transform={`translate(${x}, ${y1})`}>
+                  <circle r={12} className="fill-slate-950 stroke-teal-400 stroke-2 drop-shadow-[0_0_8px_#14b8a6]" />
+                  <line x1="-6" y1="-6" x2="6" y2="6" className="stroke-teal-400 stroke-2" />
+                  <line x1="-6" y1="6" x2="6" y2="-6" className="stroke-teal-400 stroke-2" />
+                </g>
+              )}
             </g>
           );
         })}

@@ -73,6 +73,7 @@ async def simulate_circuit(req: CircuitRequest):
             elif gate.type == 'Rx': qc.rx(p.get('theta', 0), q)
             elif gate.type == 'Ry': qc.ry(p.get('theta', 0), q)
             elif gate.type == 'Rz': qc.rz(p.get('theta', 0), q)
+            elif gate.type == 'MEASURE': pass # Measurements are captured at final execution step
 
         # 3. Research Metrics: Entropy & Entanglement
         # Get Statevector
@@ -80,7 +81,6 @@ async def simulate_circuit(req: CircuitRequest):
         sv = Statevector.from_instruction(qc_state)
         
         # Calculate von Neumann Entropy (0 = Pure/Classical, >0 = Entangled/Mixed)
-        # We calculate for the whole system (pure) and subsystems
         system_entropy = entropy(sv)
         
         # Correlation Analysis (Mutual Information approx)
@@ -99,16 +99,24 @@ async def simulate_circuit(req: CircuitRequest):
             z = np.real(np.trace(rho.data @ np.array([[1, 0], [0, -1]])))
             bloch_vectors.append({"x": x, "y": y, "z": z, "theta": np.degrees(np.arccos(np.clip(z, -1, 1))), "phi": np.degrees(np.arctan2(y, x))})
 
-        # 5. Transpilation WOW Factor (Hardware Optimization)
+        # 5. Transpilation & Execution
         backend = AerSimulator()
         noise_model = build_noise_model(req.noise)
         
-        # Level 3 optimization for 'WOW' depth reduction
+        # Level 3 optimization for depth reduction
         t_qc = transpile(qc, backend, optimization_level=3)
         t_depth = t_qc.depth()
         
-        # 6. Execute with Noise
-        qc.measure_all()
+        # Check explicit measurement gates
+        has_measure = any(g.type == 'MEASURE' for g in req.gates)
+        if not has_measure:
+            qc.measure_all()
+        else:
+            for gate in req.gates:
+                if gate.type == 'MEASURE':
+                    cbit = gate.qubit # Map qubit to classical bit of same index
+                    qc.measure(gate.qubit, cbit) if qc.num_clbits > gate.qubit else None
+
         job = backend.run(transpile(qc, backend), noise_model=noise_model, shots=2048)
         result = job.result()
         counts = result.get_counts()

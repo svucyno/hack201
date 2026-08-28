@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import useStore from '../shared/store';
 import { Send, Terminal, Bot, User, Sparkles, Loader2 } from 'lucide-react';
 
+import { API_BASE_URL } from '../shared/api';
+
 export default function AIChatPanel() {
   const { gates, numQubits } = useStore();
   const [messages, setMessages] = useState([
@@ -21,7 +23,7 @@ export default function AIChatPanel() {
     setLoading(true);
 
     try {
-      const resp = await fetch('http://localhost:8000/ai/explain', {
+      const resp = await fetch(`${API_BASE_URL}/ai/explain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ numQubits, gates, question: input }),

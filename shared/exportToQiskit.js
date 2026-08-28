@@ -3,13 +3,14 @@
 export function exportToQiskit(numQubits, gates) {
   let code = `from qiskit import QuantumCircuit, transpile\n`;
   code += `from qiskit_aer import AerSimulator\n\n`;
-  code += `# 1. Initialize Circuit\n`;
+  code += `# 1. Initialize Circuit (${numQubits} Qubits)\n`;
   code += `qc = QuantumCircuit(${numQubits})\n\n`;
 
   // Sort gates by time
   const sortedGates = [...gates].sort((a, b) => a.time - b.time);
 
   code += `# 2. Apply Gates\n`;
+  let hasMeasure = false;
   sortedGates.forEach(gate => {
     const p = gate.params || {};
     switch(gate.type) {
@@ -25,16 +26,25 @@ export function exportToQiskit(numQubits, gates) {
       case 'Rx': code += `qc.rx(${p.theta || 0}, ${gate.qubit})\n`; break;
       case 'Ry': code += `qc.ry(${p.theta || 0}, ${gate.qubit})\n`; break;
       case 'Rz': code += `qc.rz(${p.theta || 0}, ${gate.qubit})\n`; break;
-      case 'MEASURE': code += `qc.measure_all()\n`; break;
+      case 'MEASURE': 
+        code += `qc.measure(${gate.qubit}, ${gate.qubit})\n`; 
+        hasMeasure = true; 
+        break;
       default: break;
     }
   });
 
-  code += `\n# 3. Simulate\n`;
+  if (!hasMeasure && sortedGates.length > 0) {
+    code += `\n# Measure all qubits if no explicit measurement gate exists\n`;
+    code += `qc.measure_all()\n`;
+  }
+
+  code += `\n# 3. Execute Simulation\n`;
   code += `backend = AerSimulator()\n`;
   code += `t_qc = transpile(qc, backend)\n`;
-  code += `result = backend.run(t_qc).result()\n`;
+  code += `result = backend.run(t_qc, shots=2048).result()\n`;
   code += `print("Counts:", result.get_counts())\n`;
 
   return code;
 }
+

@@ -1,136 +1,205 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MessageSquareCode, X, Sparkles, Send, BrainCircuit, Coffee, Info } from 'lucide-react';
+import { 
+  MessageSquareCode, 
+  X, 
+  Sparkles, 
+  Send, 
+  BrainCircuit, 
+  Coffee, 
+  Info,
+  Trash2,
+  HelpCircle,
+  Zap,
+  Lightbulb
+} from 'lucide-react';
+import useStore from '../shared/store';
+import { API_BASE_URL } from '../shared/api';
+
+const QUICK_PROMPTS = [
+  "Explain this quantum circuit's physics",
+  "Is there entanglement between qubits?",
+  "What algorithm does this match?",
+  "Explain using simple wave analogies"
+];
 
 export default function GlobalAIAssistant() {
+  const { numQubits, gates } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [mathFree, setMathFree] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hello! I'm your QFlux Quantum Pilot. I can decode complex quantum logic into plain language. How can I help you explore the Hilbert space today?" }
+    { 
+      role: 'assistant', 
+      content: "Greetings, Physicist. I am your QFlux Quantum Pilot. I can analyze the unitary matrix operations, detect multi-qubit entanglement, and translate complex Hilbert space physics into intuitive language. How can I assist your experiment?" 
+    }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
-    setMessages([...messages, { role: 'user', content: userMsg }]);
+  const sendMessage = async (customPrompt = null) => {
+    const textToSend = (customPrompt || input).trim();
+    if (!textToSend || loading) return;
+
+    setMessages(prev => [...prev, { role: 'user', content: textToSend }]);
     setInput('');
     setLoading(true);
 
     const contextPrefix = mathFree 
-      ? "[STRICT ANALOGY MODE: No math, no formulas. Explain using real-world analogies like waves, coins, or light.] " 
+      ? "[STRICT ANALOGY MODE: No math, no formulas. Explain using intuitive real-world analogies like coins, spinning tops, ripples, or polarized light.] " 
       : "";
 
     try {
-      const resp = await fetch('http://localhost:8000/ai/explain', {
+      const resp = await fetch(`${API_BASE_URL}/ai/explain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ circuit: contextPrefix + userMsg }),
+        body: JSON.stringify({ numQubits, gates, question: contextPrefix + textToSend }),
       });
       const data = await resp.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.explanation || "I have analyzed the quantum state. The probability distribution suggests a highly correlated system." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: data.explanation || data.error || "Statevector analyzed." }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "I encountered a synchronization error. Please check your local QFlux engine status." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Backend synchronization error. Please verify the QFlux FastAPI engine is running." }]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleClearChat = () => {
+    setMessages([
+      { role: 'assistant', content: "Chat history cleared. What quantum question shall we investigate next?" }
+    ]);
+  };
+
   return (
-    <div className="fixed bottom-8 right-8 z-[200]">
+    <div className="fixed bottom-6 right-6 z-50 select-none">
       {/* Floating Toggle Button */}
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)}
-          className="w-16 h-16 bg-[#2563eb] hover:bg-[#3b82f6] text-white rounded-full shadow-[0_20px_50px_rgba(37,99,235,0.4)] flex items-center justify-center transition-all duration-500 hover:scale-110 active:scale-95 group relative border border-white/10"
+          className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group relative border border-white/20 glow-cyan"
+          title="Open AI Quantum Pilot"
         >
-           <BrainCircuit size={28} />
-           <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-black animate-pulse" />
-           <span className="absolute right-full mr-6 bg-[#18181b] border border-[#27272a] text-[#fafafa] text-[11px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap pointer-events-none shadow-2xl translate-x-4 group-hover:translate-x-0">
-              A.I. Pilot Ready
-           </span>
+          <BrainCircuit size={26} className="animate-pulse" />
+          <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-950 animate-ping" />
+          <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-950" />
+          
+          <span className="absolute right-full mr-4 bg-slate-900 border border-white/10 text-white text-xs font-mono font-bold uppercase tracking-wider px-3.5 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap pointer-events-none shadow-2xl translate-x-2 group-hover:translate-x-0">
+            AI Quantum Pilot
+          </span>
         </button>
       )}
 
-      {/* Global AI Panel */}
+      {/* Glassmorphic AI Chat Window */}
       {isOpen && (
-        <div className="w-[400px] h-[600px] bg-[#09090b] border border-[#27272a] rounded-3xl shadow-[0_40px_80px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden animate-slide-up border-t border-white/5">
-           {/* Header */}
-           <div className="p-6 border-b border-[#27272a] bg-[#0d1117] flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                 <div className="flex flex-col">
-                    <span className="text-[12px] font-black uppercase text-[#fafafa] tracking-[0.2em]">Quantum Pilot</span>
-                    <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active Intelligence</span>
-                 </div>
+        <div className="w-[380px] sm:w-[440px] h-[600px] glass-panel border border-white/15 rounded-3xl shadow-[0_30px_90px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden animate-slide-up">
+          {/* Header */}
+          <div className="p-4 px-5 border-b border-white/10 bg-slate-950/90 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-md glow-cyan">
+                <BrainCircuit size={18} />
               </div>
+              <div>
+                <span className="text-xs font-mono font-black uppercase text-white tracking-wider flex items-center gap-1.5">
+                  Quantum Pilot <span className="text-[9px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.2 rounded font-bold">AI</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono block">Physics & Entanglement Explainer</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={handleClearChat}
+                className="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-all"
+                title="Clear Chat"
+              >
+                <Trash2 size={16} />
+              </button>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="p-2.5 hover:bg-[#18181b] rounded-xl text-[#71717a] transition-all hover:text-[#fafafa]"
+                className="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-all"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
-           </div>
+            </div>
+          </div>
 
-           {/* 🧠 MATH-FREE TOGGLE (Accessibility Feature) */}
-           <div className="px-6 py-3 bg-[#18181b]/40 border-b border-[#27272a] flex items-center justify-between group">
-              <div className="flex items-center gap-3">
-                 <Coffee size={14} className={mathFree ? "text-orange-400" : "text-[#3f3f46]"} />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-[#71717a] shrink-0">Analogy Mode (No Math)</span>
+          {/* Analogy Mode (No Math) Toggle */}
+          <div className="px-5 py-2.5 bg-slate-950/60 border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Coffee size={14} className={mathFree ? "text-amber-400" : "text-slate-500"} />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-300">
+                Analogy Mode (No Math)
+              </span>
+            </div>
+            <button 
+              onClick={() => setMathFree(!mathFree)}
+              className={`w-9 h-5 rounded-full transition-all relative ${mathFree ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)]' : 'bg-slate-800'}`}
+            >
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${mathFree ? 'left-4.5' : 'left-0.5'}`} />
+            </button>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar bg-slate-950/30">
+            {messages.map((m, i) => (
+              <div key={i} className={`flex flex-col gap-1.5 ${m.role === 'user' ? 'items-end' : 'items-start'} animate-fade-in`}>
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-400 px-1">
+                  {m.role === 'user' ? 'Physicist' : 'Quantum AI Engine'}
+                </span>
+                <div className={`
+                  max-w-[90%] p-4 rounded-2xl text-xs leading-relaxed font-normal shadow-lg select-text
+                  ${m.role === 'user' 
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-tr-none font-medium' 
+                    : 'bg-slate-900/90 border border-white/10 text-slate-200 rounded-tl-none whitespace-pre-wrap'
+                  }
+                `}>
+                  {m.content}
+                </div>
               </div>
+            ))}
+
+            {loading && (
+              <div className="flex items-center gap-3 text-cyan-400 p-3 bg-cyan-500/5 rounded-2xl border border-cyan-500/10 animate-pulse">
+                <Sparkles size={16} className="animate-spin duration-3000" />
+                <span className="text-xs font-mono font-bold">Transpiling DAG & Analyzing Physics...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Prompts Suggestions */}
+          <div className="px-4 py-2 border-t border-white/5 bg-slate-950/80 flex gap-2 overflow-x-auto custom-scrollbar">
+            {QUICK_PROMPTS.map((promptText, idx) => (
+              <button
+                key={idx}
+                onClick={() => sendMessage(promptText)}
+                disabled={loading}
+                className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/5 hover:border-cyan-500/30 text-[10px] font-mono text-slate-300 hover:text-cyan-300 whitespace-nowrap transition-all shrink-0"
+              >
+                {promptText}
+              </button>
+            ))}
+          </div>
+
+          {/* Chat Input Box */}
+          <div className="p-4 border-t border-white/10 bg-slate-950">
+            <div className="flex items-center gap-2 relative">
+              <input 
+                disabled={loading}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                className="w-full bg-slate-900 border border-white/10 text-white text-xs font-mono font-normal pl-4 pr-12 py-3 rounded-2xl focus:outline-none focus:border-cyan-500 transition-all placeholder:text-slate-400"
+                placeholder={mathFree ? "Ask for a simple physical analogy..." : "Ask about gates, statevectors, entanglement..."}
+              />
               <button 
-                onClick={() => setMathFree(!mathFree)}
-                className={`w-10 h-5 rounded-full transition-all relative ${mathFree ? 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-[#27272a]'}`}
+                onClick={() => sendMessage()}
+                disabled={loading || !input.trim()}
+                className="absolute right-2 p-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl transition-all disabled:opacity-20 shadow-lg active:scale-95"
               >
-                 <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${mathFree ? 'left-6' : 'left-1'}`} />
+                <Send size={14} />
               </button>
-           </div>
-
-           {/* Console/Chat Area */}
-           <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar bg-[#000000]/30 min-h-0">
-              {messages.map((m, i) => (
-                <div key={i} className={`flex flex-col gap-3 ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                   <div className="flex items-center gap-2 opacity-30 text-[10px] font-black uppercase tracking-widest">
-                      {m.role === 'user' ? <span>Observer</span> : <span className="text-blue-500">Q-Pilot System</span>}
-                   </div>
-                   <div className={`
-                      max-w-[90%] p-5 rounded-2xl text-[14px] font-medium leading-relaxed shadow-xl
-                      ${m.role === 'user' ? 'bg-blue-600 text-[#fafafa] rounded-tr-none' : 'bg-[#18181b] border border-[#27272a] text-[#a1a1aa] rounded-tl-none italic'}
-                   `}>
-                      {m.content}
-                   </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex items-center gap-4 text-[#71717a] animate-pulse p-4">
-                   <Sparkles size={16} className="animate-spin duration-[3000ms] text-blue-500" />
-                   <span className="text-[11px] uppercase font-black tracking-[0.2em]">Modulating Wavefunctions...</span>
-                </div>
-              )}
-           </div>
-
-           {/* Input Terminal */}
-           <div className="p-6 border-t border-[#27272a] bg-[#0d1117]">
-              <div className="flex items-center gap-3 relative">
-                 <input 
-                   disabled={loading}
-                   value={input}
-                   onChange={(e) => setInput(e.target.value)}
-                   onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                   className="w-full bg-[#18181b] border border-[#27272a] text-[#fafafa] text-[14px] font-bold px-6 py-4 rounded-2xl focus:outline-none focus:border-blue-500 focus:shadow-[0_0_20px_rgba(37,99,235,0.1)] transition-all placeholder:text-[#3f3f46]"
-                   placeholder={mathFree ? "Ask for an analogy..." : "Explain this quantum logic..."}
-                 />
-                 <button 
-                   onClick={sendMessage}
-                   disabled={loading || !input.trim()}
-                   className="absolute right-2 p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all disabled:opacity-20 shadow-xl active:scale-95"
-                 >
-                   <Send size={18} />
-                 </button>
-              </div>
-           </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

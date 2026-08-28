@@ -1,12 +1,25 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { INITIAL_NUM_QUBITS } from './constants';
+import { INITIAL_NUM_QUBITS, HARDWARE_PROFILES, DEFAULT_SHOTS } from './constants';
+
+/**
+ * Helper: Checks if placing/moving a gate causes a collision on any occupied qubit wire at time.
+ */
+const hasCollision = (gates, targetQubit, targetTime, excludeGateId = null) => {
+  return gates.some(g => {
+    if (g.id === excludeGateId) return false;
+    if (g.time !== targetTime) return false;
+    const occupiedQubits = [g.qubit, g.target].filter(q => q !== undefined && q !== null);
+    return occupiedQubits.includes(targetQubit);
+  });
+};
 
 const useStore = create((set, get) => ({
   // --- Circuit State ---
   numQubits: INITIAL_NUM_QUBITS,
+  shots: DEFAULT_SHOTS,
   gates: [],
-  noiseProfile: { id: 'perfect', t1: 50.0, t2: 70.0, gate_error: 0.001 },
+  noiseProfile: HARDWARE_PROFILES.perfect,
 
   // --- History State ---
   undoStack: [],
@@ -22,17 +35,23 @@ const useStore = create((set, get) => ({
     probabilities: null,
     blochVectors: null,
     counts: null,
-    metrics: null, // von Neumann Entropy, Depth, Fidelity
-    correlations: null, // Purity per qubit
+    metrics: null,
+    correlations: null,
     loading: false,
     error: null,
   },
 
   // --- Actions ---
 
-  setNoiseProfile: (config) => set((state) => ({
-    noiseProfile: { ...state.noiseProfile, ...config }
-  })),
+  setShots: (shots) => set({ shots }),
+
+  setNoiseProfile: (profileKeyOrObject) => set((state) => {
+    let profile = profileKeyOrObject;
+    if (typeof profileKeyOrObject === 'string' && HARDWARE_PROFILES[profileKeyOrObject]) {
+      profile = HARDWARE_PROFILES[profileKeyOrObject];
+    }
+    return { noiseProfile: { ...state.noiseProfile, ...profile } };
+  }),
 
   setNumQubits: (n) => {
     const { gates } = get();
@@ -41,17 +60,63 @@ const useStore = create((set, get) => ({
     set({ numQubits: n, gates: filteredGates });
   },
 
+  loadPreset: (preset) => {
+    get().saveSnapshot();
+    set({
+      numQubits: preset.numQubits,
+      gates: preset.gates.map(g => ({
+        ...g,
+        id: uuidv4(),
+        params: g.params || {}
+      })),
+      selectedGateId: null,
+      simulationResults: {
+        statevector: null,
+        probabilities: null,
+        blochVectors: null,
+        counts: null,
+        metrics: null,
+        correlations: null,
+        loading: false,
+        error: null,
+      }
+    });
+  },
+
   addGate: (gateData) => {
+    const { gates, numQubits } = get();
+    const targetQubit = gateData.qubit;
+    const time = gateData.time;
+
+    // 1. Bounds check
+    if (targetQubit < 0 || targetQubit >= numQubits) return false;
+
+    // 2. Collision check
+    if (hasCollision(gates, targetQubit, time)) return false;
+
+    // 3. Default multi-qubit target setup if missing (ensure target != control)
+    let target = gateData.target;
+    if (gateData.type === 'CNOT' || gateData.type === 'CZ' || gateData.type === 'SWAP') {
+      if (target === undefined || target === targetQubit) {
+        target = targetQubit + 1 < numQubits ? targetQubit + 1 : (targetQubit > 0 ? targetQubit - 1 : 0);
+      }
+      if (target === targetQubit) return false; // Cannot control and target same qubit
+      if (hasCollision(gates, target, time)) return false;
+    }
+
     get().saveSnapshot();
     const newGate = {
       ...gateData,
       id: uuidv4(),
+      target,
       params: gateData.params || {},
     };
+
     set((state) => ({
       gates: [...state.gates, newGate],
       selectedGateId: newGate.id,
     }));
+    return true;
   },
 
   removeGate: (gateId) => {
@@ -63,6 +128,20 @@ const useStore = create((set, get) => ({
   },
 
   updateGate: (gateId, patch) => {
+    const { gates, numQubits } = get();
+    const existing = gates.find(g => g.id === gateId);
+    if (!existing) return;
+
+    const updatedControl = patch.qubit !== undefined ? patch.qubit : existing.qubit;
+    const updatedTarget = patch.target !== undefined ? patch.target : existing.target;
+
+    // Prevent control == target
+    if (updatedTarget !== undefined && updatedControl === updatedTarget) return;
+
+    // Check collision if qubit position shifted
+    if (patch.qubit !== undefined && hasCollision(gates, updatedControl, existing.time, gateId)) return;
+    if (patch.target !== undefined && updatedTarget !== undefined && hasCollision(gates, updatedTarget, existing.time, gateId)) return;
+
     get().saveSnapshot();
     set((state) => ({
       gates: state.gates.map((g) => (g.id === gateId ? { ...g, ...patch } : g)),
@@ -70,9 +149,26 @@ const useStore = create((set, get) => ({
   },
 
   moveGate: (gateId, qubit, time) => {
+    const { gates } = get();
+    const existing = gates.find(g => g.id === gateId);
+    if (!existing) return;
+
+    // Collision check
+    if (hasCollision(gates, qubit, time, gateId)) return;
+    if (existing.target !== undefined) {
+      const targetDelta = existing.target - existing.qubit;
+      const newTarget = qubit + targetDelta;
+      if (hasCollision(gates, newTarget, time, gateId)) return;
+    }
+
     get().saveSnapshot();
     set((state) => ({
-      gates: state.gates.map((g) => (g.id === gateId ? { ...g, qubit, time } : g)),
+      gates: state.gates.map((g) => (g.id === gateId ? { 
+        ...g, 
+        qubit, 
+        time,
+        target: g.target !== undefined ? qubit + (g.target - g.qubit) : undefined 
+      } : g)),
     }));
   },
 
@@ -143,3 +239,4 @@ const useStore = create((set, get) => ({
 }));
 
 export default useStore;
+
